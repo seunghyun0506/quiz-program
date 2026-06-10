@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('회원가입')}"></head>
+<body>
+    <div th:replace="~{layout/main :: navbar}"></div>
+
+    <main class="app-container">
+        <div class="auth-wrapper">
+            <div class="card auth-card">
+                <h2 class="auth-title">회원가입</h2>
+                <p class="auth-subtitle">계정을 생성하여 퀴즈 및 오답노트를 관리해보세요</p>
+
+                <!-- Error message if registration failed -->
+                <div th:if="${error}" class="error-message">
+                    <i class="fa-solid fa-triangle-exclamation"></i> <span th:text="${error}">오류 메시지</span>
+                </div>
+
+                <form th:action="@{/auth/register}" method="post">
+                    <div class="form-group">
+                        <label for="email" class="form-label">이메일 주소</label>
+                        <input type="email" id="email" name="email" class="form-control" placeholder="example@email.com" required autocomplete="email">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nickname" class="form-label">닉네임</label>
+                        <input type="text" id="nickname" name="nickname" class="form-control" placeholder="사용할 닉네임" required autocomplete="nickname">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password" class="form-label">비밀번호</label>
+                        <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required autocomplete="new-password">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fa-solid fa-user-plus"></i> 가입하기
+                    </button>
+                </form>
+
+                <p class="auth-footer-text">
+                    이미 계정이 있으신가요? <a th:href="@{/auth/login}">로그인</a>
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <footer th:replace="~{layout/main :: footer}"></footer>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('오답노트')}"></head>
+<body>
+    <div th:replace="~{layout/main :: navbar}"></div>
+
+    <main class="app-container" style="max-width: 800px; margin-top: 40px;">
+        <div class="page-header" style="margin-top: 0;">
+            <div>
+                <h1>오답노트</h1>
+                <p>지금까지 틀린 문제를 다시 확인하고 복습하여 부족한 개념을 완벽하게 다져보세요.</p>
+            </div>
+        </div>
+
+        <!-- 오답 목록 -->
+        <div th:if="${wrongAnswers.isEmpty()}" class="card" style="text-align: center; padding: 60px 20px;">
+            <i class="fa-solid fa-circle-check" style="font-size: 48px; color: var(--success); margin-bottom: 16px;"></i>
+            <h3>틀린 문제가 없습니다! 아주 훌륭합니다.</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">모든 퀴즈를 완벽하게 정복했습니다.</p>
+            <a th:href="@{/quizzes}" class="btn btn-primary">새로운 퀴즈 도전</a>
+        </div>
+
+        <div th:if="${!wrongAnswers.isEmpty()}" style="display: flex; flex-direction: column; gap: 24px; margin-bottom: 40px;">
+            <div th:each="ans, iter : ${wrongAnswers}" class="card result-item-card incorrect">
+                <!-- 어떤 퀴즈에 속한 문제인지 표시 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                    <span style="font-size: 13px; font-weight: 700; color: var(--primary);">
+                        <i class="fa-solid fa-file-signature"></i> <span th:text="${ans.quizAttempt.quiz.title}">퀴즈 제목</span>
+                    </span>
+                    <span style="font-size: 12px; color: var(--text-muted);" th:text="${#temporals.format(ans.quizAttempt.completedAt, 'yyyy-MM-dd HH:mm')}">풀이 날짜</span>
+                </div>
+
+                <div class="result-item-title">
+                    <div style="flex: 1;">
+                        <span th:text="${ans.question.questionText}" style="font-size: 18px; font-weight: 600; line-height: 1.4;">틀린 문제 내용</span>
+                    </div>
+                </div>
+
+                <!-- 보기 목록과 내가 선택한 정오답 보기 -->
+                <div class="result-options-list" style="margin-top: 16px;">
+                    <div th:each="opt : ${ans.question.options}" 
+                         class="result-option-item" 
+                         th:classappend="${opt.isCorrect ? 'correct-answer' : ''} + ' ' + ${ans.selectedOptionIds.contains(opt.id) ? (opt.isCorrect ? 'user-selected correct-answer' : 'user-selected wrong-answer') : ''}">
+                        
+                        <span th:text="${opt.optionText}">보기 리스트 항목</span>
+                        
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <span th:if="${opt.isCorrect}" class="option-badge correct">정답</span>
+                            <span th:if="${ans.selectedOptionIds.contains(opt.id)}" class="option-badge" th:classappend="${opt.isCorrect ? 'selected' : 'wrong'}">내가 선택</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 상세 설명 -->
+                <div style="background-color: var(--bg-main); padding: 16px; border-radius: var(--radius-sm); margin-top: 16px;">
+                    <strong style="color: var(--primary); display: block; font-size: 13px; margin-bottom: 6px;">
+                        <i class="fa-solid fa-circle-info"></i> 오답 피드백 & 해설
+                    </strong>
+                    <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.5;" 
+                       th:text="${ans.question.explanation != null && !ans.question.explanation.isEmpty() ? ans.question.explanation : '별도의 해설이 제공되지 않는 문항입니다.'}">
+                        해설 텍스트 영역
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer th:replace="~{layout/main :: footer}"></footer>
+</body>
+</html>

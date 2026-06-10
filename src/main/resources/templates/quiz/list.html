@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{layout/main :: head('퀴즈 목록')}"></head>
+<body>
+    <div th:replace="~{layout/main :: navbar}"></div>
+
+    <main class="app-container">
+        <div class="page-header">
+            <div>
+                <h1>퀴즈 대시보드</h1>
+                <p>다양한 주제의 퀴즈를 탐색하고 본인의 지식을 테스트해 보세요.</p>
+            </div>
+            <a th:href="@{/quizzes/create}" class="btn btn-accent">
+                <i class="fa-solid fa-plus"></i> 새 퀴즈 만들기
+            </a>
+        </div>
+
+        <!-- If no quizzes -->
+        <div th:if="${quizzes.isEmpty()}" class="card" style="text-align: center; padding: 60px 20px;">
+            <i class="fa-solid fa-folder-open" style="font-size: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+            <h3>등록된 퀴즈가 없습니다.</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">첫 번째 퀴즈의 주인공이 되어보세요!</p>
+            <a th:href="@{/quizzes/create}" class="btn btn-primary">퀴즈 만들기</a>
+        </div>
+
+        <!-- 과목 필터 탭 -->
+        <div th:if="${!quizzes.isEmpty()}" class="subject-filter-container" style="display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; align-items: center;">
+            <span style="font-weight: 700; color: var(--text-secondary); margin-right: 10px;"><i class="fa-solid fa-tags"></i> 과목 필터:</span>
+            <button class="btn btn-primary btn-sm filter-tab active" data-filter="all" style="border-radius: var(--radius-full); padding: 6px 16px;">전체</button>
+            <button th:each="subject : ${#sets.sort(quizzes.![subject])}"
+                    class="btn btn-secondary btn-sm filter-tab"
+                    th:data-filter="${subject}"
+                    th:text="${subject}"
+                    style="border-radius: var(--radius-full); padding: 6px 16px;">과목</button>
+        </div>
+
+        <!-- Quiz Grid -->
+        <div th:if="${!quizzes.isEmpty()}" class="grid grid-3">
+            <div th:each="quiz : ${quizzes}" class="card card-hover quiz-card" th:data-subject="${quiz.subject}">
+                <div class="quiz-card-header">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; background-color: rgba(236, 72, 153, 0.1); padding: 2px 8px; border-radius: 4px; display: inline-block; margin-bottom: 10px;" th:text="${quiz.subject}">과목</span>
+                    <h3 class="quiz-card-title" th:text="${quiz.title}">퀴즈 제목</h3>
+                    <p class="quiz-card-desc" th:text="${quiz.description}">퀴즈 설명 텍스트가 노출되는 영역입니다.</p>
+                </div>
+                
+                <div>
+                    <div class="quiz-meta">
+                        <div class="quiz-meta-item">
+                            <i class="fa-solid fa-circle-question"></i>
+                            <span th:text="${quiz.questions.size()} + '개 문항'">10개 문항</span>
+                        </div>
+                        <div class="quiz-meta-item">
+                            <i class="fa-solid fa-user"></i>
+                            <span th:text="${quiz.creatorNickname}">닉네임</span>
+                        </div>
+                        <div class="quiz-meta-item">
+                            <i class="fa-solid fa-clock"></i>
+                            <span th:text="${#temporals.format(quiz.createdAt, 'yyyy-MM-dd')}">2026-06-10</span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <a th:href="@{/quizzes/{id}(id=${quiz.id})}" class="btn btn-primary btn-sm" style="flex: 1;">
+                            <i class="fa-solid fa-play"></i> 상세 정보
+                        </a>
+                        <!-- Delete Button (Only for Creator) -->
+                        <form th:if="${quiz.creatorEmail == #authentication.name}" th:action="@{/quizzes/{id}/delete(id=${quiz.id})}" method="post" onsubmit="return confirm('정말 이 퀴즈를 삭제하시겠습니까?');" style="display: inline;">
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer th:replace="~{layout/main :: footer}"></footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabs = document.querySelectorAll('.filter-tab');
+            const cards = document.querySelectorAll('.quiz-card');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Update active classes
+                    tabs.forEach(t => {
+                        t.classList.remove('active', 'btn-primary');
+                        t.classList.add('btn-secondary');
+                    });
+                    tab.classList.add('active', 'btn-primary');
+                    tab.classList.remove('btn-secondary');
+
+                    const filterValue = tab.getAttribute('data-filter');
+
+                    // Filter cards with opacity transition
+                    cards.forEach(card => {
+                        const subject = card.getAttribute('data-subject');
+                        if (filterValue === 'all' || subject === filterValue) {
+                            card.style.display = 'flex';
+                            // Force reflow
+                            void card.offsetWidth;
+                            card.style.opacity = '1';
+                            card.style.transform = 'scale(1)';
+                        } else {
+                            card.style.opacity = '0';
+                            card.style.transform = 'scale(0.95)';
+                            setTimeout(() => {
+                                if (card.style.opacity === '0') {
+                                    card.style.display = 'none';
+                                }
+                            }, 200);
+                        }
+                    });
+                });
+            });
+
+            // Set up transition styles for cards
+            cards.forEach(card => {
+                card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('마이페이지')}"></head>
+<body>
+    <div th:replace="~{layout/main :: navbar}"></div>
+
+    <main class="app-container" style="max-width: 800px; margin-top: 40px;">
+        <div class="page-header" style="margin-top: 0;">
+            <div>
+                <h1>마이페이지</h1>
+                <p>풀이 이력 분석 및 오답 정리를 한눈에 확인해보세요.</p>
+            </div>
+        </div>
+
+        <!-- 1. 통계 정보 요약 -->
+        <div class="stats-container">
+            <div class="card stats-card">
+                <div class="stats-val" th:text="${totalAttempts} + '회'">12회</div>
+                <div class="stats-lbl">총 퀴즈 풀이 횟수</div>
+            </div>
+            <div class="card stats-card">
+                <div class="stats-val" th:text="${averageScore} + '%'">85.5%</div>
+                <div class="stats-lbl">평균 퀴즈 정답률</div>
+            </div>
+        </div>
+
+        <!-- 2. 풀이 이력 목록 -->
+        <div class="card">
+            <h3 style="margin-bottom: 20px;"><i class="fa-solid fa-history"></i> 최근 풀이 내역</h3>
+            
+            <div th:if="${history.isEmpty()}" style="text-align: center; padding: 40px 0;">
+                <i class="fa-solid fa-circle-info" style="font-size: 36px; color: var(--text-muted); margin-bottom: 12px; display: block;"></i>
+                <p style="color: var(--text-secondary);">풀이한 퀴즈 이력이 존재하지 않습니다.</p>
+                <a th:href="@{/quizzes}" class="btn btn-primary btn-sm" style="margin-top: 16px;">퀴즈 풀러 가기</a>
+            </div>
+
+            <div th:if="${!history.isEmpty()}" class="history-list">
+                <div th:each="h : ${history}" class="history-item" style="border-bottom: 1px solid var(--border-color); padding: 16px 0; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="history-info">
+                        <h4 style="font-size: 16px; font-weight: 600;" th:text="${h.quizTitle}">퀴즈 제목</h4>
+                        <span class="history-date" th:text="${#temporals.format(h.completedAt, 'yyyy-MM-dd HH:mm')}">2026-06-10 14:00</span>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 24px;">
+                        <div style="text-align: right;">
+                            <strong style="display: block; font-size: 16px;" th:text="${h.score} + ' / ' + ${h.totalQuestions} + ' 문항'">8 / 10</strong>
+                            <span style="font-size: 13px; color: var(--text-secondary);" 
+                                  th:text="${#numbers.formatDecimal((double)h.score / h.totalQuestions * 100, 1, 0)} + '%'">80%</span>
+                        </div>
+                        <a th:href="@{/quizzes/attempts/{id}/result(id=${h.attemptId})}" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-magnifying-glass"></i> 상세 분석
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer th:replace="~{layout/main :: footer}"></footer>
+</body>
+</html>

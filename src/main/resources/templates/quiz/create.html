@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('퀴즈 만들기')}"></head>
+<body>
+    <div th:replace="~{layout/main :: navbar}"></div>
+
+    <main class="app-container">
+        <div class="page-header">
+            <div>
+                <h1>퀴즈 만들기</h1>
+                <p>시각적 폼 인터페이스를 이용하거나 JSON 파일을 업로드하여 퀴즈를 직접 만들어 보세요.</p>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr; gap: 32px; margin-bottom: 40px;">
+            
+            <!-- 1. JSON 파일 업로드 영역 -->
+            <div class="card">
+                <h3 style="margin-bottom: 8px;"><i class="fa-solid fa-file-code"></i> JSON 파일로 업로드</h3>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">
+                    사전에 약속된 포맷의 JSON 파일을 업로드하면 아래의 폼 양식에 자동으로 입력됩니다.
+                </p>
+                <div id="json-drop-zone" class="json-upload-area">
+                    <i class="fa-solid fa-cloud-arrow-up json-upload-icon"></i>
+                    <h4>JSON 파일을 여기에 드래그 앤 드롭하거나 클릭하여 선택하세요</h4>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">확장자: .json</p>
+                    <input type="file" id="json-file-input" accept=".json" style="display: none;">
+                </div>
+            </div>
+
+            <!-- 2. 시각적 폼 작성 영역 -->
+            <div class="card">
+                <h3 style="margin-bottom: 24px;"><i class="fa-solid fa-pen-to-square"></i> 퀴즈 정보 입력</h3>
+                
+                <form id="quiz-form">
+                    <!-- 기본 정보 -->
+                    <div class="form-group">
+                        <label for="quiz-title" class="form-label">퀴즈 제목</label>
+                        <input type="text" id="quiz-title" class="form-control" placeholder="퀴즈 제목을 입력하세요 (예: Java 핵심 개념 테스트)" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="quiz-subject" class="form-label">과목명</label>
+                        <input type="text" id="quiz-subject" class="form-control" placeholder="퀴즈의 과목 분류를 입력하세요 (예: Java, Spring Boot, DB)" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="quiz-description" class="form-label">퀴즈 설명</label>
+                        <textarea id="quiz-description" class="form-control" rows="3" placeholder="퀴즈에 대한 설명을 작성하세요."></textarea>
+                    </div>
+
+                    <!-- 문제 컨테이너 -->
+                    <div style="border-top: 1px solid var(--border-color); margin-top: 32px; padding-top: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3><i class="fa-solid fa-list-check"></i> 문제 구성</h3>
+                            <button type="button" id="add-question-btn" class="btn btn-secondary btn-sm">
+                                <i class="fa-solid fa-plus"></i> 문제 추가
+                            </button>
+                        </div>
+                        
+                        <div id="questions-list-container">
+                            <!-- JavaScript에 의해 문항 카드가 추가되는 곳 -->
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+                        <a th:href="@{/quizzes}" class="btn btn-secondary">취소</a>
+                        <button type="submit" class="btn btn-accent">
+                            <i class="fa-solid fa-floppy-disk"></i> 퀴즈 생성 완료
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer th:replace="~{layout/main :: footer}"></footer>
+
+    <script th:inline="javascript">
+        let questionCount = 0;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 초기 문제 1개 세팅
+            addQuestion();
+
+            // 문제 추가 버튼 이벤트
+            document.getElementById('add-question-btn').addEventListener('click', () => {
+                addQuestion();
+            });
+
+            // 드래그 앤 드롭 처리
+            const dropZone = document.getElementById('json-drop-zone');
+            const fileInput = document.getElementById('json-file-input');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file && file.name.endsWith('.json')) {
+                    handleJsonFile(file);
+                } else {
+                    alert('올바른 JSON 파일이 아닙니다.');
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    handleJsonFile(file);
+                }
+            });
+
+            // 폼 제출 처리
+            document.getElementById('quiz-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                submitQuiz();
+            });
+        });
+
+        // 문제 폼 HTML 동적 추가
+        function addQuestion(questionData = null) {
+            questionCount++;
+            const qIndex = questionCount;
+            
+            const qCard = document.createElement('div');
+            qCard.className = 'builder-question';
+            qCard.id = `question-card-${qIndex}`;
+            qCard.innerHTML = `
+                <div class="builder-question-header">
+                    <h4>Q${qIndex}</h4>
+                    <button type="button" class="remove-question-btn" onclick="removeQuestion(${qIndex})">
+                        <i class="fa-solid fa-trash-can"></i> 삭제
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">문제 내용</label>
+                    <input type="text" class="form-control question-text-input" placeholder="문제를 입력하세요 (예: JVM의 메모리 영역 중 static 변수가 저장되는 곳은?)" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">제한 시간(초)</label>
+                    <input type="number" class="form-control question-time-limit" min="0" placeholder="0 = 시간제한 없음" style="max-width: 200px;">
+                </div>
+
+                <!-- 보기 컨테이너 -->
+                <div class="builder-options-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label class="form-label" style="margin-bottom: 0;">객관식 보기 목록 (정답 체크)</label>
+                        <button type="button" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 11px;" onclick="addOptionToQuestion(${qIndex})">
+                            <i class="fa-solid fa-plus"></i> 보기 추가
+                        </button>
+                    </div>
+                    <div id="options-container-${qIndex}">
+                        <!-- 보기가 들어가는 곳 -->
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label class="form-label">정오답 해설</label>
+                    <textarea class="form-control question-explanation" rows="2" placeholder="정답 풀이에 대한 상세한 해설을 적어주세요."></textarea>
+                </div>
+            `;
+
+            document.getElementById('questions-list-container').appendChild(qCard);
+
+            // 데이터가 있는 경우 채워넣기 (JSON 업로드 시 사용)
+            if (questionData) {
+                qCard.querySelector('.question-text-input').value = questionData.questionText || '';
+                qCard.querySelector('.question-time-limit').value = questionData.timeLimitSeconds || 0;
+                qCard.querySelector('.question-explanation').value = questionData.explanation || '';
+                
+                const optContainer = document.getElementById(`options-container-${qIndex}`);
+                if (questionData.options && questionData.options.length > 0) {
+                    questionData.options.forEach((optText, oIdx) => {
+                        const isCorrect = questionData.correctAnswerIndices && questionData.correctAnswerIndices.includes(oIdx);
+                        addOptionToQuestion(qIndex, optText, isCorrect);
+                    });
+                }
+            } else {
+                // 기본 보기 4개 추가
+                addOptionToQuestion(qIndex, '', false);
+                addOptionToQuestion(qIndex, '', false);
+                addOptionToQuestion(qIndex, '', false);
+                addOptionToQuestion(qIndex, '', false);
+            }
+        }
+
+        // 특정 문제 삭제
+        function removeQuestion(index) {
+            const card = document.getElementById(`question-card-${index}`);
+            if (card) {
+                card.remove();
+                // 순번 업데이트
+                updateQuestionNumbers();
+            }
+        }
+
+        function updateQuestionNumbers() {
+            const cards = document.querySelectorAll('.builder-question');
+            questionCount = cards.length;
+            cards.forEach((card, idx) => {
+                const qNum = idx + 1;
+                card.querySelector('.builder-question-header h4').innerText = `Q${qNum}`;
+            });
+        }
+
+        // 특정 문제에 객관식 보기 행 추가
+        function addOptionToQuestion(qIndex, optText = '', isCorrect = false) {
+            const container = document.getElementById(`options-container-${qIndex}`);
+            const optRows = container.querySelectorAll('.builder-option-row');
+            const optIndex = optRows.length;
+
+            const row = document.createElement('div');
+            row.className = 'builder-option-row';
+            row.innerHTML = `
+                <input type="checkbox" class="builder-checkbox-input" ${isCorrect ? 'checked' : ''}>
+                <input type="text" class="form-control option-text-input" placeholder="보기 항목 내용을 입력하세요" value="${optText}" required style="padding: 8px 12px; font-size: 14px;">
+                <button type="button" class="remove-question-btn" onclick="this.parentElement.remove()" style="margin-left: 8px;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+            container.appendChild(row);
+        }
+
+        // JSON 파일 파싱 및 폼 채우기
+        function handleJsonFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // 폼 기본정보 채우기
+                    document.getElementById('quiz-title').value = data.title || '';
+                    document.getElementById('quiz-subject').value = data.subject || '기타';
+                    document.getElementById('quiz-description').value = data.description || '';
+                    
+                    // 문항 초기화 후 새로 그리기
+                    document.getElementById('questions-list-container').innerHTML = '';
+                    questionCount = 0;
+                    
+                    if (data.questions && data.questions.length > 0) {
+                        data.questions.forEach(q => {
+                            addQuestion(q);
+                        });
+                        alert('JSON 파일 정보가 정상적으로 적용되었습니다. 내용을 확인하고 퀴즈 생성 완료 버튼을 클릭하세요.');
+                    } else {
+                        alert('JSON 파일에 문제 목록(questions)이 비어있습니다.');
+                    }
+                } catch (err) {
+                    alert('JSON 파싱에 실패했습니다. 파일 형식을 확인해주세요: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 전체 데이터 수집 및 퀴즈 POST 제출
+        function submitQuiz() {
+            const title = document.getElementById('quiz-title').value;
+            const subject = document.getElementById('quiz-subject').value;
+            const description = document.getElementById('quiz-description').value;
+            
+            const qCards = document.querySelectorAll('.builder-question');
+            if (qCards.length === 0) {
+                alert('문제를 최소 1개 이상 추가해야 합니다.');
+                return;
+            }
+
+            const questions = [];
+            let isValid = true;
+
+            qCards.forEach((card, idx) => {
+                const questionText = card.querySelector('.question-text-input').value;
+                const timeLimit = parseInt(card.querySelector('.question-time-limit').value) || 0;
+                const explanation = card.querySelector('.question-explanation').value;
+                
+                const optRows = card.querySelectorAll('.builder-option-row');
+                const options = [];
+                const correctAnswerIndices = [];
+
+                optRows.forEach((row, oIdx) => {
+                    const text = row.querySelector('.option-text-input').value;
+                    const isChecked = row.querySelector('.builder-checkbox-input').checked;
+                    
+                    options.push(text);
+                    if (isChecked) {
+                        correctAnswerIndices.push(oIdx);
+                    }
+                });
+
+                // Validation
+                if (options.length < 2) {
+                    alert(`Q${idx+1}: 보기를 최소 2개 이상 추가해 주세요.`);
+                    isValid = false;
+                    return;
+                }
+                if (correctAnswerIndices.length === 0) {
+                    alert(`Q${idx+1}: 최소 한 개의 보기를 정답으로 지정해야 합니다.`);
+                    isValid = false;
+                    return;
+                }
+
+                const selectionLimit = correctAnswerIndices.length;
+
+                questions.push({
+                    questionText,
+                    options,
+                    correctAnswerIndices,
+                    explanation,
+                    selectionLimit,
+                    timeLimitSeconds: timeLimit
+                });
+            });
+
+            if (!isValid) return;
+
+            const payload = {
+                title,
+                description,
+                subject,
+                questions
+            };
+
+            // AJAX Request
+            fetch('/quizzes/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(res => {
+                if (res.ok) {
+                    alert('퀴즈가 정상적으로 저장되었습니다.');
+                    location.href = '/quizzes';
+                } else {
+                    res.text().then(text => alert('오류: ' + text));
+                }
+            })
+            .catch(err => {
+                alert('네트워크 통신 중 오류가 발생했습니다: ' + err.message);
+            });
+        }
+    </script>
+</body>
+</html>

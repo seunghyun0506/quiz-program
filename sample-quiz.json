@@ -1,0 +1,43 @@
+{
+  "title": "Spring Boot & JPA 핵심 개념 퀴즈",
+  "description": "Spring Boot와 JPA(Java Persistence API)의 동작 방식 및 필수 개념을 검증하는 샘플 퀴즈 세트입니다.",
+  "questions": [
+    {
+      "questionText": "Spring Boot에서 애플리케이션 시작 시 특정 코드나 데이터 초기화 로직을 기동 단계에서 실행하기 위해 구현해야 하는 인터페이스를 모두 고르시오.",
+      "options": [
+        "CommandLineRunner",
+        "ApplicationRunner",
+        "InitializingBean",
+        "BeanFactoryPostProcessor"
+      ],
+      "correctAnswerIndices": [0, 1],
+      "explanation": "CommandLineRunner와 ApplicationRunner는 Spring Boot 구동 시점에 실행되어야 하는 초기화 코드를 실행하도록 설계된 인터페이스입니다. InitializingBean은 빈의 프로퍼티가 세팅된 직후 단일 빈 단위로 작동하며, BeanFactoryPostProcessor는 스프링의 컨테이너 빈 팩토리 수준에서 설정 메타데이터를 수정하는 용도입니다.",
+      "selectionLimit": 2,
+      "timeLimitSeconds": 30
+    },
+    {
+      "questionText": "JPA(Hibernate)의 영속성 컨텍스트(Persistence Context)가 제공하는 기능이 아닌 것은 무엇인가요?",
+      "options": [
+        "1차 캐시 (1st-level Cache)",
+        "동일성(Identity) 보장",
+        "쓰기 지연 (Transactional Write-Behind)",
+        "2차 캐시 전역 동기화 (2nd-level Cache Sync)"
+      ],
+      "correctAnswerIndices": [3],
+      "explanation": "1차 캐시, 동일성 보장, 쓰기 지연(지연 쓰기), 변경 감지(Dirty Checking), 지연 로딩 등은 영속성 컨텍스트(1차 레벨)의 기본 기능입니다. 2차 캐시(L2 Cache)는 어플리케이션 전체나 세션 팩토리 수준에서 동작하는 별도의 전역 캐시 기능입니다.",
+      "selectionLimit": 1,
+      "timeLimitSeconds": 20
+    },
+    {
+      "questionText": "JPA 연관관계 매핑에서 다대일(@ManyToOne) 단방향 관계일 때, 기본 fetch 전략(FetchType)은 EAGER(즉시 로딩)이다.",
+      "options": [
+        "참 (O)",
+        "거짓 (X)"
+      ],
+      "correctAnswerIndices": [0],
+      "explanation": "@ManyToOne과 @OneToOne 연관관계의 기본 fetch 전략은 FetchType.EAGER(즉시 로딩)이며, @OneToMany와 @ManyToMany의 기본 fetch 전략은 FetchType.LAZY(지연 로딩)입니다.",
+      "selectionLimit": 1,
+      "timeLimitSeconds": 15
+    }
+  ]
+}

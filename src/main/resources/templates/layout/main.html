@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} + ' - QuizMaster'"></title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <!-- Add FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" th:fragment="navbar">
+        <div class="app-container nav-container">
+            <a th:href="@{/}" class="logo-brand">
+                <i class="fa-solid fa-brain"></i> QuizMaster
+            </a>
+            
+            <ul class="nav-links" sec:authorize="isAuthenticated()">
+                <li>
+                    <a th:href="@{/quizzes}" class="nav-link" th:classappend="${currentURI == '/quizzes' ? 'active' : ''}">
+                        <i class="fa-solid fa-list"></i> 퀴즈 목록
+                    </a>
+                </li>
+                <li>
+                    <a th:href="@{/quizzes/create}" class="nav-link" th:classappend="${currentURI == '/quizzes/create' ? 'active' : ''}">
+                        <i class="fa-solid fa-circle-plus"></i> 퀴즈 만들기
+                    </a>
+                </li>
+                <li>
+                    <a th:href="@{/mypage}" class="nav-link" th:classappend="${currentURI == '/mypage' ? 'active' : ''}">
+                        <i class="fa-solid fa-user"></i> 마이페이지
+                    </a>
+                </li>
+                <li>
+                    <a th:href="@{/mypage/wrong-answers}" class="nav-link" th:classappend="${currentURI == '/mypage/wrong-answers' ? 'active' : ''}">
+                        <i class="fa-solid fa-book-open"></i> 오답노트
+                    </a>
+                </li>
+            </ul>
+
+            <div class="auth-buttons">
+                <!-- If Logged In -->
+                <div sec:authorize="isAuthenticated()" style="display: flex; align-items: center; gap: 16px;">
+                    <span style="color: var(--text-secondary); font-size: 14px;">
+                        <i class="fa-solid fa-user-circle"></i> <span sec:authentication="name">사용자</span>님
+                    </span>
+                    <form th:action="@{/auth/logout}" method="post" style="display: inline;">
+                        <button type="submit" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-sign-out-alt"></i> 로그아웃
+                        </button>
+                    </form>
+                </div>
+                <!-- If Anonymous -->
+                <div sec:authorize="isAnonymous()">
+                    <a th:href="@{/auth/login}" class="btn btn-secondary btn-sm" style="margin-right: 8px;">로그인</a>
+                    <a th:href="@{/auth/register}" class="btn btn-primary btn-sm">회원가입</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="app-container" th:insert="${content}"></main>
+
+    <!-- Footer -->
+    <footer th:fragment="footer">
+        <div class="app-container">
+            <p>&copy; 2026 QuizMaster. All rights reserved. Powered by Spring Boot & Thymeleaf.</p>
+        </div>
+    </footer>
+</body>
+</html>

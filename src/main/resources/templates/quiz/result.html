@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('퀴즈 결과')}"></head>
+<body>
+    <div th:replace="~{layout/main :: navbar}"></div>
+
+    <main class="app-container">
+        <div class="play-wrapper">
+            
+            <!-- 결과 헤더 카드 -->
+            <div class="card result-header-card">
+                <h2>퀴즈 완료!</h2>
+                <p style="color: var(--text-secondary);" th:text="${attempt.quiz.title}">자바 프로그래밍 핵심 테스트</p>
+                
+                <div class="score-badge">
+                    <span class="score-num" th:text="${attempt.score}">80</span>
+                    <span class="score-total" th:text="'/ ' + ${attempt.totalQuestions} + ' 문항'">/ 10 문항</span>
+                </div>
+
+                <div style="display: flex; justify-content: center; gap: 32px; margin-top: 16px;">
+                    <div>
+                        <span style="display: block; color: var(--text-muted); font-size: 13px;">소요 시간</span>
+                        <strong style="font-size: 18px;" th:text="${attempt.elapsedSeconds / 60} + '분 ' + ${attempt.elapsedSeconds % 60} + '초'">2분 15초</strong>
+                    </div>
+                    <div>
+                        <span style="display: block; color: var(--text-muted); font-size: 13px;">정답률</span>
+                        <strong style="font-size: 18px; color: var(--primary);" th:text="${#numbers.formatDecimal((double)attempt.score / attempt.totalQuestions * 100, 1, 1)} + '%'">80%</strong>
+                    </div>
+                </div>
+            </div>
+
+            <h3 style="margin-bottom: 20px;"><i class="fa-solid fa-square-poll-vertical"></i> 세부 해답지</h3>
+            
+            <!-- 각 문제별 정오답 및 해설 분석 -->
+            <div class="result-list">
+                <div th:each="ans, iter : ${attempt.answers}" class="card result-item-card" th:classappend="${ans.isCorrect ? 'correct' : 'incorrect'}">
+                    <div class="result-item-title">
+                        <div style="flex: 1; padding-right: 16px;">
+                            <span style="font-size: 14px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;" th:text="'Question ' + ${iter.count}">Q1</span>
+                            <span th:text="${ans.question.questionText}" style="font-weight: 600; line-height: 1.4;">문제 내용 질문 영역</span>
+                        </div>
+                        <span class="result-status-badge" th:text="${ans.isCorrect ? '정답' : '오답'}">정답</span>
+                    </div>
+
+                    <!-- 보기 리스트 매칭 -->
+                    <div class="result-options-list">
+                        <div th:each="opt : ${ans.question.options}" 
+                             class="result-option-item" 
+                             th:classappend="${opt.isCorrect ? 'correct-answer' : ''} + ' ' + ${ans.selectedOptionIds.contains(opt.id) ? (opt.isCorrect ? 'user-selected correct-answer' : 'user-selected wrong-answer') : ''}">
+                            
+                            <span th:text="${opt.optionText}">보기 선택 항목</span>
+                            
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <span th:if="${opt.isCorrect}" class="option-badge correct">정답</span>
+                                <span th:if="${ans.selectedOptionIds.contains(opt.id)}" class="option-badge" th:classappend="${opt.isCorrect ? 'selected' : 'wrong'}">내가 선택</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 정오답 상세 해설 -->
+                    <div style="background-color: var(--bg-main); padding: 16px; border-radius: var(--radius-sm); margin-top: 16px;">
+                        <strong style="color: var(--primary); display: block; font-size: 13px; margin-bottom: 6px;">
+                            <i class="fa-solid fa-circle-info"></i> 해설 및 풀이
+                        </strong>
+                        <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.5;" 
+                           th:text="${ans.question.explanation != null && !ans.question.explanation.isEmpty() ? ans.question.explanation : '별도의 해설이 제공되지 않는 문항입니다.'}">
+                            해설 내용이 여기에 출력됩니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 하단 네비게이션 제어 -->
+            <div style="margin-top: 40px; display: flex; justify-content: center; gap: 16px;">
+                <a th:href="@{/quizzes}" class="btn btn-secondary">
+                    <i class="fa-solid fa-list"></i> 다른 퀴즈 탐색
+                </a>
+                <a th:href="@{/mypage}" class="btn btn-primary">
+                    <i class="fa-solid fa-user"></i> 내 풀이 기록 (마이페이지)
+                </a>
+            </div>
+
+        </div>
+    </main>
+
+    <footer th:replace="~{layout/main :: footer}"></footer>
+</body>
+</html>

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('퀴즈 풀이')}"></head>
+<body>
+    <div th:replace="~{layout/main :: navbar}"></div>
+
+    <main class="app-container">
+        <div class="play-wrapper">
+            <!-- 퀴즈 상단 진행바 -->
+            <div class="progress-header">
+                <span id="quiz-mode-title" th:text="${mode == 'feedback' ? '실시간 피드백 모드' : '실전 시험 모드'}">풀이 모드</span>
+                <span id="progress-text">1 / 5 문항</span>
+            </div>
+            <div class="progress-container">
+                <div id="quiz-progress-bar" class="progress-bar"></div>
+            </div>
+
+            <!-- 퀴즈 타이머 (시험 모드는 전체시간 누적 카운트, 문제당 제한시간 있으면 카운트다운 병행) -->
+            <div id="timer-wrapper" class="timer-container" style="display: none;">
+                <i class="fa-solid fa-hourglass-half"></i>
+                <span id="timer-seconds">10</span>초 남음
+                <div class="timer-bar-bg">
+                    <div id="timer-bar" class="timer-bar"></div>
+                </div>
+            </div>
+
+            <!-- 문항 카드 컨테이너 -->
+            <div class="card" style="padding: 32px;">
+                <div id="questions-container">
+                    
+                    <!-- Thymeleaf Loop for rendering question forms (hidden by default) -->
+                    <div th:each="q, iterStat : ${quiz.questions}" 
+                         th:id="'q-card-' + ${iterStat.index}" 
+                         class="question-card" 
+                         style="display: none;" 
+                         th:data-id="${q.id}"
+                         th:data-limit="${q.selectionLimit}"
+                         th:data-time="${q.timeLimitSeconds}">
+                        
+                        <!-- 문제 내용 -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <span style="color: var(--text-muted); font-size: 14px; font-weight: 700;" th:text="'Question ' + ${iterStat.count}">Q1</span>
+                            <span style="background-color: var(--border-color); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">객관식</span>
+                        </div>
+                        <h2 class="question-text" th:text="${q.questionText}">문제 질문 텍스트</h2>
+                        
+                        <!-- 보기 목록 -->
+                        <div class="options-list">
+                            <div th:each="opt : ${q.options}" 
+                                 class="option-item" 
+                                 th:data-opt-id="${opt.id}"
+                                 onclick="toggleOptionSelect(this)">
+                                <div class="option-checkbox"></div>
+                                <span th:text="${opt.optionText}">보기 텍스트</span>
+                            </div>
+                        </div>
+
+                        <!-- 실시간 정오답 피드백 뷰 (피드백 모드에서만 동적 표출) -->
+                        <div th:id="'feedback-box-' + ${iterStat.index}" class="feedback-section" style="display: none;">
+                            <h4 class="feedback-title">
+                                <i class="fa-solid fa-circle-check"></i> <span>정답입니다!</span>
+                            </h4>
+                            <p class="feedback-explanation">해설내용...</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 풀이 동작 제어 버튼 -->
+                <div style="margin-top: 32px; display: flex; justify-content: space-between; align-items: center;">
+                    <button type="button" id="quit-btn" class="btn btn-secondary" onclick="confirmQuit()">
+                        <i class="fa-solid fa-right-from-bracket"></i> 포기하기
+                    </button>
+                    
+                    <div>
+                        <button type="button" id="submit-ans-btn" class="btn btn-primary" onclick="handleAnswerSubmit()">
+                            <i class="fa-solid fa-paper-plane"></i> 제출
+                        </button>
+                        <button type="button" id="next-q-btn" class="btn btn-accent" onclick="goToNextQuestion()" style="display: none;">
+                            다음 문제 <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer th:replace="~{layout/main :: footer}"></footer>
+
+    <script th:inline="javascript">
+        /* Thymeleaf variables */
+        const quizId = [[${quiz.id}]];
+        const mode = [[${mode}]];
+        const totalQuestions = [[${quiz.questions.size()}]];
+
+        let currentQuestionIndex = 0;
+        let totalElapsedSeconds = 0;
+        let timerInterval = null;
+        let elapsedInterval = null;
+        let currentQuestionTimeRemaining = 0;
+        let userAnswers = []; // Stores answers: { questionId, selectedOptionIds }
+
+        // Start elapsed timer (runs in background for the entire quiz)
+        elapsedInterval = setInterval(() => {
+            totalElapsedSeconds++;
+        }, 1000);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('shuffle') === 'true') {
+                shuffleQuestions();
+            }
+            showQuestion(0);
+        });
+
+        function shuffleQuestions() {
+            const container = document.getElementById('questions-container');
+            const cards = Array.from(container.querySelectorAll('.question-card'));
+            
+            // Fisher-Yates Shuffle
+            for (let i = cards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [cards[i], cards[j]] = [cards[j], cards[i]];
+            }
+            
+            // Clear and re-append in new order
+            container.innerHTML = '';
+            cards.forEach((card, index) => {
+                card.id = `q-card-${index}`;
+                
+                // Update "Question X" text
+                const questionNumLabel = card.querySelector('span');
+                if (questionNumLabel && questionNumLabel.textContent.startsWith('Question')) {
+                    questionNumLabel.textContent = `Question ${index + 1}`;
+                }
+                
+                // Update feedback box ID
+                const feedbackBox = card.querySelector('.feedback-section');
+                if (feedbackBox) {
+                    feedbackBox.id = `feedback-box-${index}`;
+                }
+                
+                container.appendChild(card);
+            });
+        }
+
+        function confirmQuit() {
+            if (confirm("정말 풀이를 중단하고 나가시겠습니까? 진행 사항은 저장되지 않습니다.")) {
+                location.href = "/quizzes/" + quizId;
+            }
+        }
+
+        function showQuestion(index) {
+            currentQuestionIndex = index;
+            
+            // Hide all cards, show active card
+            const cards = document.querySelectorAll('.question-card');
+            cards.forEach(c => c.style.display = 'none');
+            
+            const activeCard = document.getElementById(`q-card-${index}`);
+            if (!activeCard) return;
+            
+            activeCard.style.display = 'block';
+
+            // Reset buttons
+            document.getElementById('submit-ans-btn').style.display = 'inline-flex';
+            document.getElementById('submit-ans-btn').disabled = true; // Disabled until selection
+            document.getElementById('next-q-btn').style.display = 'none';
+
+            // Progress Bar Update
+            const progressPercent = ((index) / totalQuestions) * 100;
+            document.getElementById('quiz-progress-bar').style.width = `${progressPercent}%`;
+            document.getElementById('progress-text').innerText = `${index + 1} / ${totalQuestions} 문항`;
+
+            // Reset options classes
+            activeCard.querySelectorAll('.option-item').forEach(opt => {
+                opt.classList.remove('selected');
+                opt.style.pointerEvents = 'auto'; // Re-enable clicks
+            });
+
+            // Handle individual question timers
+            clearInterval(timerInterval);
+            const timeLimit = parseInt(activeCard.getAttribute('data-time')) || 0;
+            const timerWrapper = document.getElementById('timer-wrapper');
+            
+            if (timeLimit > 0) {
+                timerWrapper.style.display = 'flex';
+                currentQuestionTimeRemaining = timeLimit;
+                document.getElementById('timer-seconds').innerText = currentQuestionTimeRemaining;
+                
+                const timerBar = document.getElementById('timer-bar');
+                timerBar.style.width = '100%';
+                
+                timerInterval = setInterval(() => {
+                    currentQuestionTimeRemaining--;
+                    document.getElementById('timer-seconds').innerText = currentQuestionTimeRemaining;
+                    
+                    const widthPercent = (currentQuestionTimeRemaining / timeLimit) * 100;
+                    timerBar.style.width = `${widthPercent}%`;
+
+                    if (currentQuestionTimeRemaining <= 0) {
+                        clearInterval(timerInterval);
+                        handleTimeOut();
+                    }
+                }, 1000);
+            } else {
+                timerWrapper.style.display = 'none';
+            }
+
+            // In test mode, we do NOT require clicking "제출" button for each question.
+            // But wait, to keep flow uniform: in test mode, the button says "선택 완료" or we can just let them click "다음 문제" directly.
+            // Let's make "제출" button act as "저장 후 다음" in test mode to confirm their choice, or keep "제출" button and proceed immediately.
+            // If they click "제출" in test mode, it records the answers locally and immediately moves to the next question. That is very slick!
+            if (mode === 'test') {
+                document.getElementById('submit-ans-btn').innerHTML = (index === totalQuestions - 1) 
+                    ? '<i class="fa-solid fa-check-double"></i> 최종 제출' 
+                    : '다음 문제 <i class="fa-solid fa-arrow-right"></i>';
+            } else {
+                document.getElementById('submit-ans-btn').innerHTML = '<i class="fa-solid fa-paper-plane"></i> 정답 확인';
+            }
+        }
+
+        // Option click toggler
+        function toggleOptionSelect(element) {
+            const card = element.closest('.question-card');
+            
+            // Toggle selection state
+            element.classList.toggle('selected');
+
+            // Enable submit button if at least one selected
+            const hasSelection = card.querySelectorAll('.option-item.selected').length > 0;
+            document.getElementById('submit-ans-btn').disabled = !hasSelection;
+        }
+
+        // Handle question timeout
+        function handleTimeOut() {
+            alert('제한 시간이 초과되었습니다!');
+            
+            // Auto submit what they have (or empty)
+            if (mode === 'feedback') {
+                handleAnswerSubmit(true); // Forced submit
+            } else {
+                // Test mode: record answers and go to next
+                recordCurrentAnswers();
+                advanceQuiz();
+            }
+        }
+
+        // Collect chosen options in active card
+        function getSelectedOptionIds() {
+            const card = document.getElementById(`q-card-${currentQuestionIndex}`);
+            const selected = card.querySelectorAll('.option-item.selected');
+            const ids = [];
+            selected.forEach(el => {
+                ids.push(parseInt(el.getAttribute('data-opt-id')));
+            });
+            return ids;
+        }
+
+        function recordCurrentAnswers() {
+            const card = document.getElementById(`q-card-${currentQuestionIndex}`);
+            const questionId = parseInt(card.getAttribute('data-id'));
+            const selectedIds = getSelectedOptionIds();
+            
+            // Update or push answer
+            const existingIndex = userAnswers.findIndex(a => a.questionId === questionId);
+            if (existingIndex > -1) {
+                userAnswers[existingIndex].selectedOptionIds = selectedIds;
+            } else {
+                userAnswers.push({ questionId, selectedOptionIds: selectedIds });
+            }
+        }
+
+        // Submitting current answer
+        function handleAnswerSubmit(isTimeout = false) {
+            clearInterval(timerInterval);
+            
+            const card = document.getElementById(`q-card-${currentQuestionIndex}`);
+            const questionId = parseInt(card.getAttribute('data-id'));
+            const selectedOptionIds = getSelectedOptionIds();
+
+            // Disable option clicking once submitted
+            card.querySelectorAll('.option-item').forEach(opt => {
+                opt.style.pointerEvents = 'none';
+            });
+
+            if (mode === 'feedback') {
+                // 1. Feedback Mode: Query server immediately for answer validation
+                fetch(`/quizzes/${quizId}/feedback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ questionId, selectedOptionIds })
+                })
+                .then(res => res.json())
+                .then(feedback => {
+                    showFeedback(feedback);
+                })
+                .catch(err => {
+                    alert('정답 확인 중 통신 오류가 발생했습니다: ' + err.message);
+                });
+            } else {
+                // 2. Test Mode: Store answers locally and move forward
+                recordCurrentAnswers();
+                advanceQuiz();
+            }
+        }
+
+        // Render feedback box (Feedback Mode)
+        function showFeedback(feedback) {
+            const card = document.getElementById(`q-card-${currentQuestionIndex}`);
+            const feedbackBox = document.getElementById(`feedback-box-${currentQuestionIndex}`);
+            
+            feedbackBox.style.display = 'block';
+            
+            // Title & Color class
+            const titleEl = feedbackBox.querySelector('.feedback-title');
+            const textEl = titleEl.querySelector('span');
+            const iconEl = titleEl.querySelector('i');
+            
+            if (feedback.isCorrect) {
+                feedbackBox.className = 'feedback-section feedback-correct';
+                textEl.innerText = '정답입니다!';
+                iconEl.className = 'fa-solid fa-circle-check';
+            } else {
+                feedbackBox.className = 'feedback-section feedback-incorrect';
+                textEl.innerText = '오답입니다!';
+                iconEl.className = 'fa-solid fa-circle-xmark';
+            }
+
+            // Show explanation
+            feedbackBox.querySelector('.feedback-explanation').innerText = feedback.explanation || '별도의 해설이 제공되지 않는 문항입니다.';
+
+            // Style actual correct/incorrect choices
+            card.querySelectorAll('.option-item').forEach(opt => {
+                const optId = parseInt(opt.getAttribute('data-opt-id'));
+                const isCorrectAnswer = feedback.correctOptionIds.includes(optId);
+                const isUserSelected = opt.classList.contains('selected');
+
+                if (isCorrectAnswer) {
+                    opt.style.borderColor = 'var(--success)';
+                    opt.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+                } else if (isUserSelected && !isCorrectAnswer) {
+                    opt.style.borderColor = 'var(--danger)';
+                    opt.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                }
+            });
+
+            // Swap buttons: Hide "제출", Show "다음 문제"
+            document.getElementById('submit-ans-btn').style.display = 'none';
+            document.getElementById('next-q-btn').style.display = 'inline-flex';
+            if (currentQuestionIndex === totalQuestions - 1) {
+                document.getElementById('next-q-btn').innerHTML = '최종 결과 보기 <i class="fa-solid fa-arrow-right-to-bracket"></i>';
+            }
+        }
+
+        // Next Question
+        function goToNextQuestion() {
+            // If feedback mode, record answer before leaving
+            if (mode === 'feedback') {
+                recordCurrentAnswers();
+            }
+            advanceQuiz();
+        }
+
+        function advanceQuiz() {
+            if (currentQuestionIndex < totalQuestions - 1) {
+                showQuestion(currentQuestionIndex + 1);
+            } else {
+                // End of quiz, submit all answers to the server
+                submitFullQuiz();
+            }
+        }
+
+        // Submit complete test data to backend
+        function submitFullQuiz() {
+            clearInterval(elapsedInterval);
+            
+            const payload = {
+                quizId,
+                elapsedSeconds: totalElapsedSeconds,
+                answers: userAnswers
+            };
+
+            // Loading state
+            document.getElementById('next-q-btn').disabled = true;
+            document.getElementById('next-q-btn').innerText = '제출 중...';
+
+            fetch(`/quizzes/${quizId}/submit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => {
+                if (res.ok) {
+                    res.json().then(attemptId => {
+                        // Redirect to result page
+                        location.href = `/quizzes/attempts/${attemptId}/result`;
+                    });
+                } else {
+                    alert('시험 제출 실패. 오류가 발생했습니다.');
+                    document.getElementById('next-q-btn').disabled = false;
+                }
+            })
+            .catch(err => {
+                alert('네트워크 전송 실패: ' + err.message);
+                document.getElementById('next-q-btn').disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>
