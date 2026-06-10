@@ -11,17 +11,12 @@ permissions:
   packages: write
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Lowercase Repository Name
-        id: string
-        run: |
-          echo "repo_name=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -36,39 +31,17 @@ jobs:
       - name: Build JAR with Gradle
         run: ./gradlew bootJar -x test
 
-      - name: Set up QEMU (For ARM64 Emulation)
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx (Multi-platform Builder)
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry (GHCR)
-        uses: docker/login-action@v3
+      - name: Copy JAR and Dockerfile to Server via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "build/libs/*.jar,Dockerfile"
+          target: "~/quiz-app"
 
-      - name: Build and Push Docker Image (Targeting ARM64)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: ghcr.io/${{ steps.string.outputs.repo_name }}:latest
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Lowercase Repository Name
-        id: string
-        run: |
-          echo "repo_name=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
-      - name: Execute Remote SSH Commands to Deploy Container
+      - name: Execute Remote SSH Commands to Build and Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -76,19 +49,18 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            # 1. GHCR 로그인 (워크플로우 토큰 임시 활용)
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # 1. 배포 디렉터리로 이동
+            cd ~/quiz-app
             
-            # 2. 최신 ARM64 이미지 Pull
-            docker pull ghcr.io/${{ steps.string.outputs.repo_name }}:latest
+            # 2. 로컬에서 Docker 이미지 빌드 (서버 아키텍처에 맞게 자동 빌드됨)
+            sudo docker build -t quiz-program:latest .
             
             # 3. 기존 컨테이너가 가동 중인 경우 중단 및 삭제
-            docker stop quiz-program || true
-            docker rm quiz-program || true
+            sudo docker stop quiz-program || true
+            sudo docker rm quiz-program || true
             
-            # 4. 새 컨테이너 백그라운드 구동 (H2는 dev, 실서버는 prod 실행을 위해 환경 변수 주입)
-            # Secrets 또는 서버 자체 환경 설정 값들을 전달받아 실행합니다.
-            docker run -d --name quiz-program \
+            # 4. 새 컨테이너 백그라운드 구동 (환경 변수 주입)
+            sudo docker run -d --name quiz-program \
               -p 6974:6974 \
               -e DB_HOST="${{ secrets.DB_HOST || 'localhost' }}" \
               -e DB_PORT="${{ secrets.DB_PORT || '3306' }}" \
@@ -96,7 +68,8 @@ jobs:
               -e DB_USERNAME="${{ secrets.DB_USERNAME || 'root' }}" \
               -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
               --restart unless-stopped \
-              ghcr.io/${{ steps.string.outputs.repo_name }}:latest
+              quiz-program:latest
               
             echo "Docker Deployment completed successfully! Container status:"
-            docker ps -a | grep quiz-program
+            sudo docker ps -a | grep quiz-program
+
