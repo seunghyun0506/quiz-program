@@ -33,6 +33,14 @@ public class QuizController {
         List<QuizResponseDTO> quizzes = quizService.getAllQuizzes();
         model.addAttribute("quizzes", quizzes);
         
+        List<String> subjects = quizzes.stream()
+            .map(QuizResponseDTO::subject)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .sorted()
+            .toList();
+        model.addAttribute("subjects", subjects);
+        
         User user = userService.findByEmail(principal.getName());
         model.addAttribute("currentUser", user);
         return "quiz/list";

@@ -27,7 +27,7 @@
         <div th:if="${!quizzes.isEmpty()}" class="subject-filter-container" style="display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; align-items: center;">
             <span style="font-weight: 700; color: var(--text-secondary); margin-right: 10px;"><i class="fa-solid fa-tags"></i> 과목 필터:</span>
             <button class="btn btn-primary btn-sm filter-tab active" data-filter="all" style="border-radius: var(--radius-full); padding: 6px 16px;">전체</button>
-            <button th:each="subject : ${#sets.sort(quizzes.![subject])}"
+            <button th:each="subject : ${subjects}"
                     class="btn btn-secondary btn-sm filter-tab"
                     th:data-filter="${subject}"
                     th:text="${subject}"
