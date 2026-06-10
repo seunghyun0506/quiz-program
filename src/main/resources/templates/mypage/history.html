@@ -45,7 +45,7 @@
                         <div style="text-align: right;">
                             <strong style="display: block; font-size: 16px;" th:text="${h.score} + ' / ' + ${h.totalQuestions} + ' 문항'">8 / 10</strong>
                             <span style="font-size: 13px; color: var(--text-secondary);" 
-                                  th:text="${#numbers.formatDecimal((double)h.score / h.totalQuestions * 100, 1, 0)} + '%'">80%</span>
+                                  th:text="${#numbers.formatDecimal(h.score * 100.0 / h.totalQuestions, 1, 0)} + '%'">80%</span>
                         </div>
                         <a th:href="@{/quizzes/attempts/{id}/result(id=${h.attemptId})}" class="btn btn-secondary btn-sm">
                             <i class="fa-solid fa-magnifying-glass"></i> 상세 분석

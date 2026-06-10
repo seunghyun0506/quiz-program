@@ -24,7 +24,7 @@
                     </div>
                     <div>
                         <span style="display: block; color: var(--text-muted); font-size: 13px;">정답률</span>
-                        <strong style="font-size: 18px; color: var(--primary);" th:text="${#numbers.formatDecimal((double)attempt.score / attempt.totalQuestions * 100, 1, 1)} + '%'">80%</strong>
+                        <strong style="font-size: 18px; color: var(--primary);" th:text="${#numbers.formatDecimal(attempt.score * 100.0 / attempt.totalQuestions, 1, 1)} + '%'">80%</strong>
                     </div>
                 </div>
             </div>
